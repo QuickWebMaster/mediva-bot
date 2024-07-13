@@ -1,10 +1,8 @@
 import logging
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
 import openai
-from datetime import datetime, timedelta
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import os
 
 # Настройка логирования
 logging.basicConfig(
@@ -87,7 +85,6 @@ if __name__ == "__main__":
     application.add_error_handler(error_handler)
 
     application.run_polling()
-
 
 
 
