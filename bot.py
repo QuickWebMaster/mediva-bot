@@ -1,10 +1,11 @@
 import logging
 import os
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
 import openai
 from datetime import datetime, timedelta
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from data import services
 
 # Настройка логирования
 logging.basicConfig(
@@ -37,9 +38,9 @@ LANGUAGES = {
 
 # Приветственное сообщение
 WELCOME_MESSAGES = {
-    "ru": "Я - искусственный интеллект клиники Медива...",
-    "uz": "Men Mediva klinikasining sun'iy intellektiman...",
-    "en": "I am the artificial intelligence of the Mediva Clinic..."
+    "ru": "Я - искусственный интеллект клиники Медива. Моя задача - предоставлять информацию о предоставляемых услугах и ценах, помочь с записью на прием, отвечать на вопросы об услугах и процедурах, а также предоставлять другую полезную информацию о нашей клинике.",
+    "uz": "Men Mediva klinikasining sun'iy intellektiman. Mening vazifam - taqdim etilayotgan xizmatlar va narxlar haqida ma'lumot berish, qabulga yozilishda yordam berish, xizmatlar va protseduralar haqida savollarga javob berish, shuningdek, bizning klinikamiz haqida boshqa foydali ma'lumotlarni taqdim etish.",
+    "en": "I am the artificial intelligence of the Mediva Clinic. My task is to provide information about the services and prices, help with making appointments, answer questions about services and procedures, and also provide other useful information about our clinic."
 }
 
 # Установка языка
@@ -53,13 +54,13 @@ async def set_language(update: Update, context: CallbackContext) -> None:
 async def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [InlineKeyboardButton("Русский", callback_data='lang_ru')],
-        [InlineKeyboardButton("Узбек", callback_data='lang_uz')],
-        [InlineKeyboardButton("English", callback_data='lang_en')]
+        [InlineKeyboardButton("Ўзбек", callback_data='lang_uz')],
+        [InlineKeyboardButton("English", callback_data='lang_en')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Выберите язык / Choose a language:", reply_markup=reply_markup)
 
-# Ответ на сообщения
+# Обработка сообщений
 async def handle_message(update: Update, context: CallbackContext) -> None:
     user_input = update.message.text.strip().lower()
     user_language = context.user_data.get('language', 'ru')
@@ -76,18 +77,20 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
 # Обработка ошибок
 async def error_handler(update: Update, context: CallbackContext) -> None:
     logging.error(msg="Exception while handling an update:", exc_info=context.error)
-    if update:
+    if update and update.effective_chat:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
+    else:
+        logging.error("Update or update.effective_chat is None")
 
 # Запуск бота
 if __name__ == "__main__":
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
+    
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(set_language, pattern='^lang_'))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)
-
+    
     application.run_polling()
 
 
