@@ -1,8 +1,10 @@
 import logging
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext
 import openai
+from datetime import datetime, timedelta
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # Настройка логирования
 logging.basicConfig(
@@ -35,7 +37,7 @@ LANGUAGES = {
 
 # Приветственное сообщение
 WELCOME_MESSAGES = {
-    "ru": "Я — искусственный интеллект клиники Медива...",
+    "ru": "Я - искусственный интеллект клиники Медива...",
     "uz": "Men Mediva klinikasining sun'iy intellektiman...",
     "en": "I am the artificial intelligence of the Mediva Clinic..."
 }
@@ -47,7 +49,7 @@ async def set_language(update: Update, context: CallbackContext) -> None:
     context.user_data['language'] = language_code
     await query.edit_message_text(WELCOME_MESSAGES[language_code])
 
-# Ответ на команды
+# Ответ на команду /start
 async def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [InlineKeyboardButton("Русский", callback_data='lang_ru')],
@@ -57,11 +59,12 @@ async def start(update: Update, context: CallbackContext) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Выберите язык / Choose a language:", reply_markup=reply_markup)
 
+# Ответ на сообщения
 async def handle_message(update: Update, context: CallbackContext) -> None:
     user_input = update.message.text.strip().lower()
     user_language = context.user_data.get('language', 'ru')
     response = openai.Completion.create(
-        model='gpt-4o',
+        model="gpt-4",
         prompt=user_input,
         max_tokens=1000,
         n=1,
@@ -73,7 +76,8 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
 # Обработка ошибок
 async def error_handler(update: Update, context: CallbackContext) -> None:
     logging.error(msg="Exception while handling an update:", exc_info=context.error)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
+    if update:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
 
 # Запуск бота
 if __name__ == "__main__":
