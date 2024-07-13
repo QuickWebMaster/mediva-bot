@@ -16,7 +16,6 @@ logging.basicConfig(
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Убедитесь, что токены и ключи не пустые
 if not TELEGRAM_BOT_TOKEN or not OPENAI_API_KEY:
     raise ValueError("Не установлены переменные окружения TELEGRAM_BOT_TOKEN или OPENAI_API_KEY")
 
@@ -88,6 +87,7 @@ if __name__ == "__main__":
     application.add_error_handler(error_handler)
 
     application.run_polling()
+
 
 
 
