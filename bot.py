@@ -1,10 +1,8 @@
 import logging
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
 import openai
-from datetime import datetime, timedelta
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import os
 
 # Настройка логирования
 logging.basicConfig(
@@ -15,6 +13,9 @@ logging.basicConfig(
 # Получение API ключей из переменных окружения
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not TELEGRAM_BOT_TOKEN or not OPENAI_API_KEY:
+    raise ValueError("Не установлены переменные окружения TELEGRAM_BOT_TOKEN или OPENAI_API_KEY")
 
 openai.api_key = OPENAI_API_KEY
 
@@ -45,7 +46,6 @@ async def set_language(update: Update, context: CallbackContext) -> None:
     language_code = query.data.split('_')[-1]
     context.user_data['language'] = language_code
     await query.edit_message_text(WELCOME_MESSAGES[language_code])
-    logging.info(f"Language set to: {language_code}")
 
 # Ответ на команды
 async def start(update: Update, context: CallbackContext) -> None:
@@ -56,12 +56,10 @@ async def start(update: Update, context: CallbackContext) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Выберите язык / Choose a language:", reply_markup=reply_markup)
-    logging.info("Start command received")
 
 async def handle_message(update: Update, context: CallbackContext) -> None:
     user_input = update.message.text.strip().lower()
     user_language = context.user_data.get('language', 'ru')
-    logging.info(f"Received message: {user_input} in language: {user_language}")
     response = openai.Completion.create(
         model='gpt-4o',
         prompt=user_input,
@@ -71,15 +69,11 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
         temperature=0.5
     )
     await update.message.reply_text(response.choices[0].text.strip())
-    logging.info("Response sent")
 
 # Обработка ошибок
 async def error_handler(update: Update, context: CallbackContext) -> None:
     logging.error(msg="Exception while handling an update:", exc_info=context.error)
-    try:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
-    except Exception as e:
-        logging.error(f"Failed to send error message: {e}")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
 
 # Запуск бота
 if __name__ == "__main__":
@@ -91,5 +85,6 @@ if __name__ == "__main__":
     application.add_error_handler(error_handler)
 
     application.run_polling()
+
 
 
