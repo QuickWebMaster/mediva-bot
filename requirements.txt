@@ -1,3 +1,4 @@
-openai
-python-telegram-bot
-APScheduler
+python-telegram-bot==20.0
+openai==0.27.0
+requests==2.28.1
+python-dotenv==0.19.2
