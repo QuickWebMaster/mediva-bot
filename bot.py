@@ -1,40 +1,67 @@
 import os
 import logging
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+import openai
+from telegram import Update, ForceReply
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Включаем логирование
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+# Enable logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
-# Определяем команды
-def start(update, context):
-    update.message.reply_text('Привет! Я бот Mediva.')
+# Get environment variables
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+openai.api_key = OPENAI_API_KEY
 
-def help_command(update, context):
-    update.message.reply_text('Помощь!')
+# Define a few command handlers. These usually take the two arguments update and
+# context.
+def start(update: Update, context: CallbackContext) -> None:
+    """Send a message when the command /start is issued."""
+    user = update.effective_user
+    update.message.reply_html(
+        rf'Hi {user.mention_html()}!',
+        reply_markup=ForceReply(selective=True),
+    )
 
-def echo(update, context):
-    update.message.reply_text(update.message.text)
+def help_command(update: Update, context: CallbackContext) -> None:
+    """Send a message when the command /help is issued."""
+    update.message.reply_text('Help!')
 
-def main():
-    # Получаем токен из переменных окружения
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    if not token:
-        raise ValueError("No TELEGRAM_BOT_TOKEN provided")
+def echo(update: Update, context: CallbackContext) -> None:
+    """Echo the user message."""
+    user_message = update.message.text
+    response = openai.Completion.create(
+        engine="gpt-4o",
+        prompt=user_message,
+        max_tokens=50
+    )
+    update.message.reply_text(response.choices[0].text.strip())
 
-    updater = Updater(token, use_context=True)
-    dp = updater.dispatcher
+def main() -> None:
+    """Start the bot."""
+    updater = Updater(TELEGRAM_TOKEN)
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("help", help_command))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
+    dispatcher = updater.dispatcher
 
+    # on different commands - answer in Telegram
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("help", help_command))
+
+    # on noncommand i.e message - echo the message on Telegram
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
+
+    # Start the Bot
     updater.start_polling()
+
+    # Run the bot until you press Ctrl-C or the process receives SIGINT,
+    # SIGTERM or SIGABRT
     updater.idle()
 
 if __name__ == '__main__':
     main()
+
 
 
 
