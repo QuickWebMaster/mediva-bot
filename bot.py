@@ -16,22 +16,22 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Define a few command handlers. These usually take the two arguments update and context.
-def start(update: Update, context: CallbackContext) -> None:
+async def start(update: Update, context: CallbackContext) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
     logger.info(f"Received /start command from user {user.id}")
-    update.message.reply_markdown_v2(
+    await update.message.reply_markdown_v2(
         fr'Hi {user.mention_markdown_v2()}\!',
         reply_markup=ForceReply(selective=True),
     )
 
-def help_command(update: Update, context: CallbackContext) -> None:
+async def help_command(update: Update, context: CallbackContext) -> None:
     """Send a message when the command /help is issued."""
     user = update.effective_user
     logger.info(f"Received /help command from user {user.id}")
-    update.message.reply_text('Help!')
+    await update.message.reply_text('Help!')
 
-def handle_message(update: Update, context: CallbackContext) -> None:
+async def handle_message(update: Update, context: CallbackContext) -> None:
     """Echo the user message."""
     user = update.effective_user
     user_message = update.message.text
@@ -44,10 +44,10 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         )
         response_text = response.choices[0].text.strip()
         logger.info(f"OpenAI response for user {user.id}: {response_text}")
-        update.message.reply_text(response_text)
+        await update.message.reply_text(response_text)
     except Exception as e:
         logger.error(f"Error in OpenAI API call for user {user.id}: {e}")
-        update.message.reply_text("Sorry, something went wrong with the AI response.")
+        await update.message.reply_text("Sorry, something went wrong with the AI response.")
 
 def main() -> None:
     """Start the bot."""
@@ -63,7 +63,7 @@ def main() -> None:
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
         # Start the Bot
-        logger.info("Starting the bot...")
+        logger.info("Starting the bot with long polling...")
         application.run_polling()
     except Exception as e:
         logger.error(f"Error starting the bot: {e}")
