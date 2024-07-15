@@ -1,8 +1,10 @@
 import logging
-import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
-import openai
+from openai import openai
+from datetime import datetime, timedelta
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import os
 
 # Настройка логирования
 logging.basicConfig(
@@ -13,9 +15,6 @@ logging.basicConfig(
 # Получение API ключей из переменных окружения
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not TELEGRAM_BOT_TOKEN or not OPENAI_API_KEY:
-    raise ValueError("Не установлены переменные окружения TELEGRAM_BOT_TOKEN или OPENAI_API_KEY")
 
 openai.api_key = OPENAI_API_KEY
 
