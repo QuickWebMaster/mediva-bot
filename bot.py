@@ -55,7 +55,11 @@ def find_service(service_name):
     for category, items in services.items():
         for service, details in items.items():
             if service_name.lower() in service.lower():
-                results.append(f"{service}: {details}")
+                if isinstance(details, dict):
+                    for sub_service, price in details.items():
+                        results.append(f"{sub_service}: {price}")
+                else:
+                    results.append(f"{service}: {details}")
     return results
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
