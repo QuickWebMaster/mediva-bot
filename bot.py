@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import os
 from dotenv import load_dotenv
+import time
 
 # Загрузка переменных окружения из файла .env
 load_dotenv()
@@ -107,6 +108,9 @@ if __name__ == "__main__":
 
         logger.info("Бот запущен, ожидание сообщений...")
         application.run_polling()
+        # Добавим бесконечный цикл для предотвращения завершения работы приложения
+        while True:
+            time.sleep(10)
     except Exception as e:
         logger.error(f"Ошибка при запуске приложения: {e}")
 
