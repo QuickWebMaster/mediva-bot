@@ -3,11 +3,10 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
 import openai
-from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import os
 from dotenv import load_dotenv
-from data import prices, contact_info
+from data import services  # Импортируем услуги из data.py
 
 # Загрузка переменных окружения из файла .env
 load_dotenv()
@@ -21,12 +20,18 @@ logging.basicConfig(
 # Получение API ключей из переменных окружения
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 
-if not TELEGRAM_BOT_TOKEN or not OPENAI_API_KEY or not ADMIN_CHAT_ID:
-    raise ValueError("Не установлены переменные окружения TELEGRAM_BOT_TOKEN, OPENAI_API_KEY или ADMIN_CHAT_ID")
+if not TELEGRAM_BOT_TOKEN or not OPENAI_API_KEY:
+    raise ValueError("Не установлены переменные окружения TELEGRAM_BOT_TOKEN или OPENAI_API_KEY")
 
 openai.api_key = OPENAI_API_KEY
+
+# Контактная информация клиники
+contact_info = {
+    "address": "Республика Узбекистан, город Ташкент, улица Асия 26Б",
+    "phone": "+998 (97) 534-44-95",
+    "website": "http://medivaclinic.net"
+}
 
 # Приветственное сообщение
 WELCOME_MESSAGES = {
@@ -56,26 +61,20 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
     user_input = update.message.text.strip().lower()
     user_language = context.user_data.get('language', 'ru')
     
+    logging.info(f"Received message: {user_input}")
+    
     if "цена" in user_input or "стоимость" in user_input:
-        for service, price in prices.items():
+        for service, price in services.items():
             if service in user_input:
                 await update.message.reply_text(f"{service.capitalize()} стоит {price}.")
+                logging.info(f"Sent price info for {service}")
                 await asyncio.sleep(30)
                 await update.message.reply_text("Могу Вас записать на прием или консультацию?")
                 context.user_data['awaiting_appointment'] = True
                 return
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": user_input}
-        ],
-        max_tokens=1000,
-        temperature=0.5
-    )
-
-    await update.message.reply_text(response['choices'][0]['message']['content'].strip())
+    await update.message.reply_text("Прошу прощения, я не могу помочь с этим запросом. Пожалуйста, свяжитесь с администрацией клиники для более подробной информации.")
+    logging.info(f"Sent default response")
 
 async def handle_appointment(update: Update, context: CallbackContext) -> None:
     if context.user_data.get('awaiting_appointment'):
@@ -87,8 +86,7 @@ async def handle_appointment(update: Update, context: CallbackContext) -> None:
             return
     elif context.user_data.get('awaiting_details'):
         context.user_data['appointment_details'] = user_input
-        admin_chat_id = ADMIN_CHAT_ID
-        await context.bot.send_message(chat_id=admin_chat_id, text=f"Новая запись на прием: {user_input}")
+        # здесь вы можете добавить логику для отправки данных администратору
         await update.message.reply_text("Ваши данные переданы администратору. Спасибо!")
         context.user_data['awaiting_details'] = False
     else:
@@ -111,9 +109,4 @@ if __name__ == "__main__":
 
     logging.info("Бот запущен, ожидание сообщений...")
     application.run_polling()
-
-
-
-
-
 
