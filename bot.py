@@ -12,7 +12,7 @@ load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levellevel)s - %(message)s',
     level=logging.INFO
 )
 
@@ -83,18 +83,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if service_info:
         response_text = "\n".join(service_info)
     else:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": user_input}
-            ],
-            max_tokens=1000,
-            temperature=0.5
-        )
-        response_text = response['choices'][0]['message']['content'].strip()
+        response_text = "К сожалению, я не нашел информации по вашему запросу. Пожалуйста, уточните запрос или обратитесь к нашим специалистам для получения точной информации."
 
     await update.message.reply_text(response_text)
+
+async def handle_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_input = update.message.text.strip().lower()
+    user_language = context.user_data.get('language', 'ru')
+
+    if user_input in ["да", "хорошо"]:
+        questions = {
+            "ru": [
+                "Ваше имя и фамилия?",
+                "Номер телефона?",
+                "Удобное время для записи (дата, месяц, год и время)?"
+            ],
+            "uz": [
+                "Ismingiz va familiyangiz?",
+                "Telefon raqamingiz?",
+                "Ro'yxatdan o'tish uchun qulay vaqt (sana, oy, yil va vaqt)?"
+            ],
+            "en": [
+                "Your name and surname?",
+                "Your phone number?",
+                "Convenient time for appointment (date, month, year and time)?"
+            ]
+        }
+        for question in questions[user_language]:
+            await update.message.reply_text(question)
+    else:
+        await update.message.reply_text("Пожалуйста, уточните, хотите ли вы записаться на консультацию или прием?")
 
 # Обработка ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -109,6 +127,7 @@ if __name__ == "__main__":
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(set_language, pattern='^lang_'))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(да|хорошо)$"), handle_booking))
     application.add_error_handler(error_handler)
 
     logging.info("Бот запущен, ожидание сообщений...")
