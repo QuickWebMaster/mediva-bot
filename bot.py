@@ -82,8 +82,9 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
             temperature=0.5
         )
 
-        logger.info(f"Ответ от OpenAI: {response['choices'][0]['message']['content'].strip()}")
-        await update.message.reply_text(response['choices'][0]['message']['content'].strip())
+        response_text = response['choices'][0]['message']['content'].strip()
+        logger.info(f"Ответ от OpenAI: {response_text}")
+        await update.message.reply_text(response_text)
     except Exception as e:
         logger.error(f"Ошибка при обращении к OpenAI API: {e}")
         await update.message.reply_text("Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже.")
