@@ -106,7 +106,7 @@ async def main():
         application.add_error_handler(error_handler)
 
         logger.info("Бот запущен, ожидание сообщений...")
-        await application.initialize()
+        await application.initialize()  # Инициализация приложения
         await application.start()
         await application.updater.start_polling()
         await application.idle()
