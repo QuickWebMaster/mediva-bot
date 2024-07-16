@@ -51,11 +51,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 # Функция для поиска услуги и цены
 def find_service(service_name):
+    results = []
     for category, items in services.items():
         for service, details in items.items():
             if service_name.lower() in service.lower():
-                return f"{service}: {details}"
-    return None
+                results.append(f"{service}: {details}")
+    return results
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = update.message.text.strip().lower()
@@ -64,7 +65,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # Поиск услуги в данных
     service_info = find_service(user_input)
     if service_info:
-        response_text = service_info
+        response_text = "\n".join(service_info)
     else:
         response = openai.ChatCompletion.create(
             model="gpt-4o",
