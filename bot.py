@@ -53,13 +53,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def find_service(service_name):
     results = []
     for category, items in services.items():
-        if service_name.lower() in category.lower():
-            for service, price in items.items():
-                results.append(f"{service}: {price}")
-        elif any(service_name.lower() in service.lower() for service in items):
-            for service, price in items.items():
-                if service_name.lower() in service.lower():
+        for subcategory, subitems in items.items():
+            if service_name.lower() in subcategory.lower():
+                for service, price in subitems.items():
                     results.append(f"{service}: {price}")
+            elif service_name.lower() in category.lower() or any(service_name.lower() in service.lower() for service in subitems):
+                for service, price in subitems.items():
+                    if service_name.lower() in service.lower():
+                        results.append(f"{service}: {price}")
     return results
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
