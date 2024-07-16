@@ -1,19 +1,18 @@
 import logging
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
 import openai
-from datetime import datetime, timedelta
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import os
 from dotenv import load_dotenv
-import time
+import signal
 
 # Загрузка переменных окружения из файла .env
 load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levellevelname)s - %(message)s',
     level=logging.INFO
 )
 
@@ -95,8 +94,7 @@ async def error_handler(update: Update, context: CallbackContext) -> None:
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
 
-# Запуск бота
-if __name__ == "__main__":
+async def main():
     logger.info("Запуск приложения...")
     try:
         application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
@@ -107,12 +105,17 @@ if __name__ == "__main__":
         application.add_error_handler(error_handler)
 
         logger.info("Бот запущен, ожидание сообщений...")
-        application.run_polling()
-        # Добавим бесконечный цикл для предотвращения завершения работы приложения
-        while True:
-            time.sleep(10)
+        await application.start()
+        await application.updater.start_polling()
+        await application.idle()
     except Exception as e:
         logger.error(f"Ошибка при запуске приложения: {e}")
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, loop.stop)
+    loop.run_until_complete(main())
 
 
 
