@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
 import openai
 import os
 from dotenv import load_dotenv
@@ -106,7 +106,6 @@ async def main():
         application.add_error_handler(error_handler)
 
         logger.info("Бот запущен, ожидание сообщений...")
-        await application.initialize()
         await application.start()
         await application.updater.start_polling()
         await application.updater.idle()
