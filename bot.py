@@ -69,6 +69,8 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
     user_input = update.message.text.strip().lower()
     user_language = context.user_data.get('language', 'ru')
 
+    logger.info(f"Получено сообщение: {user_input} на языке: {user_language}")
+
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4o",
@@ -80,6 +82,7 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
             temperature=0.5
         )
 
+        logger.info(f"Ответ от OpenAI: {response['choices'][0]['message']['content'].strip()}")
         await update.message.reply_text(response['choices'][0]['message']['content'].strip())
     except Exception as e:
         logger.error(f"Ошибка при обращении к OpenAI API: {e}")
