@@ -5,7 +5,6 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, Me
 import openai
 import os
 from dotenv import load_dotenv
-import signal
 
 # Загрузка переменных окружения из файла .env
 load_dotenv()
@@ -95,7 +94,7 @@ async def error_handler(update: Update, context: CallbackContext) -> None:
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
 
-async def main() -> None:
+async def main():
     logger.info("Запуск приложения...")
     try:
         application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
@@ -106,7 +105,6 @@ async def main() -> None:
         application.add_error_handler(error_handler)
 
         logger.info("Бот запущен, ожидание сообщений...")
-        await application.initialize()
         await application.start()
         await application.updater.start_polling()
         await application.updater.idle()
@@ -114,8 +112,5 @@ async def main() -> None:
         logger.error(f"Ошибка при запуске приложения: {e}")
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, loop.stop)
-    loop.run_until_complete(main())
+    asyncio.run(main())
 
