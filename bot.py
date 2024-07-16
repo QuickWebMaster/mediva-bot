@@ -16,6 +16,8 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+logger = logging.getLogger(__name__)
+
 # Получение API ключей из переменных окружения
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -67,26 +69,30 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
     user_input = update.message.text.strip().lower()
     user_language = context.user_data.get('language', 'ru')
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": user_input}
-        ],
-        max_tokens=1000,
-        temperature=0.5
-    )
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": user_input}
+            ],
+            max_tokens=1000,
+            temperature=0.5
+        )
 
-    await update.message.reply_text(response['choices'][0]['message']['content'].strip())
+        await update.message.reply_text(response['choices'][0]['message']['content'].strip())
+    except Exception as e:
+        logger.error(f"Ошибка при обращении к OpenAI API: {e}")
+        await update.message.reply_text("Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже.")
 
 # Обработка ошибок
 async def error_handler(update: Update, context: CallbackContext) -> None:
-    logging.error(msg="Exception while handling an update:", exc_info=context.error)
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
 
 # Запуск бота
 if __name__ == "__main__":
-    logging.info("Запуск приложения...")
+    logger.info("Запуск приложения...")
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -94,7 +100,7 @@ if __name__ == "__main__":
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)
 
-    logging.info("Бот запущен, ожидание сообщений...")
+    logger.info("Бот запущен, ожидание сообщений...")
     application.run_polling()
 
 
