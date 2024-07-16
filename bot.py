@@ -5,6 +5,7 @@ import openai
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import os
 from dotenv import load_dotenv
+from data import services  # Импортируем данные из data.py
 
 # Загрузка переменных окружения из файла .env
 load_dotenv()
@@ -48,21 +49,35 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Выберите язык / Choose a language:", reply_markup=reply_markup)
 
+# Функция для поиска услуги и цены
+def find_service(service_name):
+    for category, items in services.items():
+        for service, details in items.items():
+            if service_name.lower() in service.lower():
+                return f"{service}: {details}"
+    return None
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = update.message.text.strip().lower()
     user_language = context.user_data.get('language', 'ru')
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": user_input}
-        ],
-        max_tokens=1000,
-        temperature=0.5
-    )
+    # Поиск услуги в данных
+    service_info = find_service(user_input)
+    if service_info:
+        response_text = service_info
+    else:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": user_input}
+            ],
+            max_tokens=1000,
+            temperature=0.5
+        )
+        response_text = response['choices'][0]['message']['content'].strip()
 
-    await update.message.reply_text(response['choices'][0]['message']['content'].strip())
+    await update.message.reply_text(response_text)
 
 # Обработка ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
