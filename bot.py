@@ -53,25 +53,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def find_service(service_name):
     results = []
     for category, items in services.items():
-        if service_name.lower() in category.lower():
-            for subcategory, subitems in items.items():
+        for subcategory, subitems in items.items():
+            if service_name.lower() in subcategory.lower() or service_name.lower() in category.lower():
                 if isinstance(subitems, dict):
                     for service, price in subitems.items():
                         results.append(f"{service}: {price}")
                 else:
                     results.append(f"{subcategory}: {subitems}")
-        else:
-            for subcategory, subitems in items.items():
-                if service_name.lower() in subcategory.lower():
-                    if isinstance(subitems, dict):
-                        for service, price in subitems.items():
-                            results.append(f"{service}: {price}")
-                    else:
-                        results.append(f"{subcategory}: {subitems}")
-                elif isinstance(subitems, dict):
-                    for service, price in subitems.items():
-                        if service_name.lower() in service.lower():
-                            results.append(f"{service}: {price}")
     return results
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -132,6 +120,9 @@ if __name__ == "__main__":
 
     logging.info("Бот запущен, ожидание сообщений...")
     application.run_polling()
+
+
+
 
 
 
