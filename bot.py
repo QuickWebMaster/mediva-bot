@@ -106,10 +106,9 @@ async def main():
         application.add_error_handler(error_handler)
 
         logger.info("Бот запущен, ожидание сообщений...")
-        await application.initialize()  # Инициализация приложения
         await application.start()
         await application.updater.start_polling()
-        await application.idle()
+        await application.run()
     except Exception as e:
         logger.error(f"Ошибка при запуске приложения: {e}")
 
