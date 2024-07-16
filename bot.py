@@ -57,6 +57,7 @@ async def set_language(update: Update, context: CallbackContext) -> None:
 
 # Ответ на команды
 async def start(update: Update, context: CallbackContext) -> None:
+    logger.info("Получена команда /start")
     keyboard = [
         [InlineKeyboardButton("Русский", callback_data='lang_ru')],
         [InlineKeyboardButton("Узбек", callback_data='lang_uz')],
@@ -116,6 +117,5 @@ if __name__ == "__main__":
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, loop.stop)
     loop.run_until_complete(main())
-
 
 
