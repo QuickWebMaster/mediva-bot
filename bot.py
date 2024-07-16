@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 import openai
 import os
 from dotenv import load_dotenv
@@ -49,14 +49,14 @@ WELCOME_MESSAGES = {
 }
 
 # Установка языка
-async def set_language(update: Update, context: CallbackContext) -> None:
+async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     language_code = query.data.split('_')[-1]
     context.user_data['language'] = language_code
     await query.edit_message_text(WELCOME_MESSAGES[language_code])
 
 # Ответ на команды
-async def start(update: Update, context: CallbackContext) -> None:
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.info("Получена команда /start")
     keyboard = [
         [InlineKeyboardButton("Русский", callback_data='lang_ru')],
@@ -66,7 +66,7 @@ async def start(update: Update, context: CallbackContext) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Выберите язык / Choose a language:", reply_markup=reply_markup)
 
-async def handle_message(update: Update, context: CallbackContext) -> None:
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = update.message.text.strip().lower()
     user_language = context.user_data.get('language', 'ru')
 
@@ -91,7 +91,7 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже.")
 
 # Обработка ошибок
-async def error_handler(update: Update, context: CallbackContext) -> None:
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
 
@@ -106,6 +106,7 @@ async def main():
         application.add_error_handler(error_handler)
 
         logger.info("Бот запущен, ожидание сообщений...")
+        await application.initialize()
         await application.start()
         await application.updater.start_polling()
         await application.updater.idle()
