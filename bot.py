@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
 import openai
 import os
 from dotenv import load_dotenv
@@ -95,10 +95,10 @@ async def error_handler(update: Update, context: CallbackContext) -> None:
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
 
-async def main():
+async def main() -> None:
     logger.info("Запуск приложения...")
     try:
-        application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+        application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CallbackQueryHandler(set_language, pattern='^lang_'))
@@ -106,7 +106,7 @@ async def main():
         application.add_error_handler(error_handler)
 
         logger.info("Бот запущен, ожидание сообщений...")
-        await application.initialize()  # Инициализация приложения
+        await application.initialize()
         await application.start()
         await application.updater.start_polling()
         await application.updater.idle()
@@ -118,5 +118,4 @@ if __name__ == "__main__":
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, loop.stop)
     loop.run_until_complete(main())
-
 
