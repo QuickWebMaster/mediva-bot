@@ -106,6 +106,7 @@ async def main():
         application.add_error_handler(error_handler)
 
         logger.info("Бот запущен, ожидание сообщений...")
+        await application.initialize()
         await application.start()
         await application.updater.start_polling()
         await application.idle()
@@ -117,6 +118,5 @@ if __name__ == "__main__":
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, loop.stop)
     loop.run_until_complete(main())
-
 
 
