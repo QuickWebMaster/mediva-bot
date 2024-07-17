@@ -36,7 +36,7 @@ WELCOME_MESSAGES = {
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     language_code = query.data.split('_')[-1]
-    context.user_data['language'] = language_code
+    context.user_data[update.effective_chat.id] = language_code
     await query.edit_message_text(WELCOME_MESSAGES[language_code])
 
 # Ответ на команды
@@ -60,9 +60,9 @@ def find_service(service_name):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = update.message.text.strip().lower()
-    user_language = context.user_data.get('language', 'ru')
+    user_language = context.user_data.get(update.effective_chat.id, 'ru')
 
-    logging.info(f"Received message: {user_input} in language: {user_language}")
+    logging.info(f"Received message: {user_input} from user: {update.effective_chat.id} in language: {user_language}")
 
     # Поиск услуги в данных
     service_info = find_service(user_input)
@@ -84,13 +84,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             logging.error(f"OpenAI API error: {e}")
             response_text = "Произошла ошибка при обращении к OpenAI API. Пожалуйста, попробуйте позже."
 
-    logging.info(f"Response: {response_text}")
+    logging.info(f"Response to user {update.effective_chat.id}: {response_text}")
     await update.message.reply_text(response_text)
 
 # Обработка ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logging.error(msg="Exception while handling an update:", exc_info=context.error)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
+
+# Настройка планировщика
+scheduler = AsyncIOScheduler()
+
+def job():
+    logging.info("Scheduled job executed")
+
+scheduler.add_job(job, 'interval', minutes=60)
+scheduler.start()
 
 # Запуск бота
 if __name__ == "__main__":
