@@ -88,7 +88,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 # Обработка ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error(msg="Exception while handling an update:", exc_info=context.error)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
+    try:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
+    except Exception as e:
+        logger.error(f"Error while sending error message: {e}")
 
 # Запуск бота
 if __name__ == "__main__":
@@ -102,6 +105,7 @@ if __name__ == "__main__":
 
     logger.info("Бот запущен, ожидание сообщений...")
     application.run_polling()
+
 
 
 
