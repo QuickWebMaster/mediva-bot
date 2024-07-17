@@ -1,22 +1,19 @@
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
-import openai
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import os
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+import openai
 from dotenv import load_dotenv
-from data import services  # Импортируем данные из data.py
+from data import services
 
-# Загрузка переменных окружения из файла .env
+# Загрузка переменных окружения
 load_dotenv()
 
 # Настройка логирования
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Получение API ключей из переменных окружения
+# Получение API ключей
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -25,29 +22,12 @@ if not TELEGRAM_BOT_TOKEN or not OPENAI_API_KEY:
 
 openai.api_key = OPENAI_API_KEY
 
-# Приветственное сообщение
+# Приветственные сообщения
 WELCOME_MESSAGES = {
-    "ru": "Привет! Я — искусственный интеллект Медива. Чем могу помочь?",
-    "uz": "Salom! Men Mediva sun'iy intellektiman. Sizga qanday yordam bera olaman?",
-    "en": "Hello! I am the Mediva AI. How can I assist you?"
+    "ru": "Привет! Я — искусственный интеллект клиники МЕДИВА. Чем могу помочь?",
+    "uz": "Salom! Men MEDIVA klinikasining sun'iy intellektiman. Sizga qanday yordam bera olaman?",
+    "en": "Hello! I am the MEDIVA clinic AI. How can I assist you?"
 }
-
-# Установка языка
-async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    language_code = query.data.split('_')[-1]
-    context.user_data[update.effective_chat.id] = language_code
-    await query.edit_message_text(WELCOME_MESSAGES[language_code])
-
-# Ответ на команды
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [
-        [InlineKeyboardButton("Русский", callback_data='lang_ru')],
-        [InlineKeyboardButton("Узбек", callback_data='lang_uz')],
-        [InlineKeyboardButton("English", callback_data='lang_en')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Выберите язык / Choose a language:", reply_markup=reply_markup)
 
 # Функция для поиска услуги и цены
 def find_service(service_name):
@@ -58,11 +38,27 @@ def find_service(service_name):
                 results.append(f"{service}: {price}")
     return results
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_input = update.message.text.strip().lower()
-    user_language = context.user_data.get(update.effective_chat.id, 'ru')
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    keyboard = [
+        [InlineKeyboardButton("Русский", callback_data='lang_ru')],
+        [InlineKeyboardButton("O'zbek", callback_data='lang_uz')],
+        [InlineKeyboardButton("English", callback_data='lang_en')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Выберите язык / Tilni tanlang / Choose a language:", reply_markup=reply_markup)
 
-    logging.info(f"Received message: {user_input} from user: {update.effective_chat.id} in language: {user_language}")
+async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    language_code = query.data.split('_')[-1]
+    context.user_data['language'] = language_code
+    await query.edit_message_text(WELCOME_MESSAGES[language_code])
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_input = update.message.text.strip()
+    user_language = context.user_data.get('language', 'ru')
+
+    logger.info(f"Received message: {user_input} in language: {user_language}")
 
     # Поиск услуги в данных
     service_info = find_service(user_input)
@@ -71,49 +67,39 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     else:
         try:
             response = openai.ChatCompletion.create(
-                model="gpt-4o",
+                model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant for a clinic, providing information about medical services and their prices."},
+                    {"role": "system", "content": "You are a helpful assistant for MEDIVA clinic, providing information about medical services and their prices. Respond in the same language as the user's query."},
                     {"role": "user", "content": user_input}
                 ],
                 max_tokens=1000,
-                temperature=0.5
+                temperature=0.7
             )
             response_text = response['choices'][0]['message']['content'].strip()
-        except openai.error.InvalidRequestError as e:
-            logging.error(f"OpenAI API error: {e}")
-            response_text = "Произошла ошибка при обращении к OpenAI API. Пожалуйста, попробуйте позже."
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            response_text = "Произошла ошибка при обработке запроса. Пожалуйста, попробуйте позже."
 
-    logging.info(f"Response to user {update.effective_chat.id}: {response_text}")
+    logger.info(f"Response: {response_text}")
     await update.message.reply_text(response_text)
 
-# Обработка ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logging.error(msg="Exception while handling an update:", exc_info=context.error)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
+    logger.error("Exception while handling an update:", exc_info=context.error)
+    await update.message.reply_text("Произошла ошибка при обработке запроса. Пожалуйста, попробуйте позже.")
 
-# Настройка планировщика
-scheduler = AsyncIOScheduler()
-
-def job():
-    logging.info("Scheduled job executed")
-
-scheduler.add_job(job, 'interval', minutes=60)
-scheduler.start()
-
-# Запуск бота
-if __name__ == "__main__":
-    logging.info("Запуск приложения...")
-    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+def main() -> None:
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(set_language, pattern='^lang_'))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)
 
-    logging.info("Бот запущен, ожидание сообщений...")
-    application.run_polling()
+    logger.info("Starting bot...")
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
 
+if __name__ == '__main__':
+    main()
 
 
 
