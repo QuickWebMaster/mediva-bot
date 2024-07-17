@@ -6,14 +6,14 @@ import openai
 from dotenv import load_dotenv
 from data import services
 
-# Загрузка переменных окружения
+# Load environment variables
 load_dotenv()
 
-# Настройка логирования
+# Configure logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Получение API ключей
+# Get API keys
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -22,20 +22,25 @@ if not TELEGRAM_BOT_TOKEN or not OPENAI_API_KEY:
 
 openai.api_key = OPENAI_API_KEY
 
-# Приветственные сообщения
+# Welcome messages
 WELCOME_MESSAGES = {
     "ru": "Привет! Я — искусственный интеллект клиники МЕДИВА. Чем могу помочь?",
     "uz": "Salom! Men MEDIVA klinikasining sun'iy intellektiman. Sizga qanday yordam bera olaman?",
     "en": "Hello! I am the MEDIVA clinic AI. How can I assist you?"
 }
 
-# Функция для поиска услуги и цены
+# Function to find services and their prices
 def find_service(service_name):
     results = []
     for category, items in services.items():
         for service, price in items.items():
-            if service_name.lower() in service.lower():
-                results.append(f"{service}: {price}")
+            if isinstance(price, dict):
+                for sub_service, sub_price in price.items():
+                    if service_name.lower() in sub_service.lower():
+                        results.append(f"{sub_service}: {sub_price}")
+            else:
+                if service_name.lower() in service.lower():
+                    results.append(f"{service}: {price}")
     return results
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -60,7 +65,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     logger.info(f"Received message: {user_input} in language: {user_language}")
 
-    # Поиск услуги в данных
+    # Search for service in data
     service_info = find_service(user_input)
     if service_info:
         response_text = "\n".join(service_info)
@@ -100,6 +105,7 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
 
 
 
