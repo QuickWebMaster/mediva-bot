@@ -51,12 +51,12 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     query = update.callback_query
     await query.answer()
     language_code = query.data.split('_')[-1]
-    context.user_data['language'] = language_code
+    context.user_data[update.effective_chat.id] = language_code
     await query.edit_message_text(WELCOME_MESSAGES[language_code])
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = update.message.text.strip()
-    user_language = context.user_data.get('language', 'ru')
+    user_language = context.user_data.get(update.effective_chat.id, 'ru')
 
     logger.info(f"Received message: {user_input} in language: {user_language}")
 
@@ -69,7 +69,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             response = openai.ChatCompletion.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant for MEDIVA clinic, providing information about medical services and their prices. Respond in the same language as the user's query."},
+                    {"role": "system", "content": f"You are a helpful assistant for MEDIVA clinic, providing information about medical services and their prices. Respond in {user_language}."},
                     {"role": "user", "content": user_input}
                 ],
                 max_tokens=1000,
