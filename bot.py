@@ -12,7 +12,7 @@ load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelень)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
@@ -69,16 +69,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if service_info:
         response_text = "\n".join(service_info)
     else:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": user_input}
-            ],
-            max_tokens=1000,
-            temperature=0.5
-        )
-        response_text = response['choices'][0]['message']['content'].strip()
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant for a clinic, providing information about medical services and their prices."},
+                    {"role": "user", "content": user_input}
+                ],
+                max_tokens=1000,
+                temperature=0.5
+            )
+            response_text = response['choices'][0]['message']['content'].strip()
+        except openai.error.InvalidRequestError as e:
+            logging.error(f"OpenAI API error: {e}")
+            response_text = "Произошла ошибка при обращении к OpenAI API. Пожалуйста, попробуйте позже."
 
     logging.info(f"Response: {response_text}")
     await update.message.reply_text(response_text)
@@ -100,6 +104,7 @@ if __name__ == "__main__":
 
     logging.info("Бот запущен, ожидание сообщений...")
     application.run_polling()
+
 
 
 
