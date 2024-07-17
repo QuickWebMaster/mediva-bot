@@ -12,7 +12,7 @@ load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levelень)s - %(message)s',
     level=logging.INFO
 )
 
@@ -53,18 +53,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def find_service(service_name):
     results = []
     for category, items in services.items():
-        if service_name.lower() in category.lower():
-            for service, price in items.items():
+        for service, price in items.items():
+            if service_name.lower() in service.lower():
                 results.append(f"{service}: {price}")
-        elif any(service_name.lower() in service.lower() for service in items):
-            for service, price in items.items():
-                if service_name.lower() in service.lower():
-                    results.append(f"{service}: {price}")
     return results
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = update.message.text.strip().lower()
     user_language = context.user_data.get('language', 'ru')
+
+    logging.info(f"Received message: {user_input} in language: {user_language}")
 
     # Поиск услуги в данных
     service_info = find_service(user_input)
@@ -82,6 +80,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         response_text = response['choices'][0]['message']['content'].strip()
 
+    logging.info(f"Response: {response_text}")
     await update.message.reply_text(response_text)
 
 # Обработка ошибок
