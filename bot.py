@@ -72,16 +72,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if service_info:
         response_text = "\n".join(service_info)
     else:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": user_input}
-            ],
-            max_tokens=1000,
-            temperature=0.5
-        )
-        response_text = response['choices'][0]['message']['content'].strip()
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": user_input}
+                ],
+                max_tokens=1000,
+                temperature=0.5
+            )
+            response_text = response['choices'][0]['message']['content'].strip()
+        except Exception as e:
+            logger.error(f"Error with OpenAI API: {e}")
+            response_text = "Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже."
 
     await update.message.reply_text(response_text)
 
@@ -106,7 +110,6 @@ if __name__ == "__main__":
 
     logger.info("Бот запущен, ожидание сообщений...")
     application.run_polling()
-
 
 
 
