@@ -34,8 +34,13 @@ def find_service(service_name):
     results = []
     for category, items in services.items():
         for service, price in items.items():
-            if service_name.lower() in service.lower():
-                results.append(f"{service}: {price}")
+            if isinstance(price, dict):
+                for sub_service, sub_price in price.items():
+                    if service_name.lower() in sub_service.lower():
+                        results.append(f"{sub_service}: {sub_price}")
+            else:
+                if service_name.lower() in service.lower():
+                    results.append(f"{service}: {price}")
     return results
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -51,12 +56,12 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     query = update.callback_query
     await query.answer()
     language_code = query.data.split('_')[-1]
-    context.user_data[update.effective_chat.id] = language_code
+    context.user_data['language'] = language_code
     await query.edit_message_text(WELCOME_MESSAGES[language_code])
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_input = update.message.text.strip()
-    user_language = context.user_data.get(update.effective_chat.id, 'ru')
+    user_language = context.user_data.get('language', 'ru')
 
     logger.info(f"Received message: {user_input} in language: {user_language}")
 
@@ -69,15 +74,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             response = openai.ChatCompletion.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": f"You are a helpful assistant for MEDIVA clinic, providing information about medical services and their prices. Respond in {user_language}."},
+                    {"role": "system", "content": "You are a helpful assistant for MEDIVA clinic, providing information about medical services and their prices. Respond in the same language as the user's query."},
                     {"role": "user", "content": user_input}
                 ],
                 max_tokens=1000,
                 temperature=0.7
             )
             response_text = response['choices'][0]['message']['content'].strip()
-        except Exception as e:
+        except openai.error.InvalidRequestError as e:
             logger.error(f"OpenAI API error: {e}")
+            response_text = "Произошла ошибка при обращении к OpenAI API. Пожалуйста, попробуйте позже."
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
             response_text = "Произошла ошибка при обработке запроса. Пожалуйста, попробуйте позже."
 
     logger.info(f"Response: {response_text}")
@@ -100,6 +108,7 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
 
 
 
