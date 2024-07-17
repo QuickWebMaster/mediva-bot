@@ -6,14 +6,14 @@ import openai
 from dotenv import load_dotenv
 from data import services
 
-# Load environment variables
+# Загрузка переменных окружения
 load_dotenv()
 
-# Configure logging
+# Настройка логирования
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Get API keys
+# Получение API ключей
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -22,25 +22,29 @@ if not TELEGRAM_BOT_TOKEN or not OPENAI_API_KEY:
 
 openai.api_key = OPENAI_API_KEY
 
-# Welcome messages
+# Приветственные сообщения
 WELCOME_MESSAGES = {
     "ru": "Привет! Я — искусственный интеллект клиники МЕДИВА. Чем могу помочь?",
     "uz": "Salom! Men MEDIVA klinikasining sun'iy intellektiman. Sizga qanday yordam bera olaman?",
     "en": "Hello! I am the MEDIVA clinic AI. How can I assist you?"
 }
 
-# Function to find services and their prices
+# Функция для поиска услуги и цены
 def find_service(service_name):
     results = []
     for category, items in services.items():
-        for service, price in items.items():
-            if isinstance(price, dict):
-                for sub_service, sub_price in price.items():
-                    if service_name.lower() in sub_service.lower():
-                        results.append(f"{sub_service}: {sub_price}")
-            else:
-                if service_name.lower() in service.lower():
-                    results.append(f"{service}: {price}")
+        if isinstance(items, dict):
+            for service, price in items.items():
+                if isinstance(price, dict):
+                    for sub_service, sub_price in price.items():
+                        if service_name.lower() in sub_service.lower():
+                            results.append(f"{sub_service}: {sub_price}")
+                else:
+                    if service_name.lower() in service.lower():
+                        results.append(f"{service}: {price}")
+        else:
+            if service_name.lower() in category.lower():
+                results.append(f"{category}: {items}")
     return results
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -65,7 +69,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     logger.info(f"Received message: {user_input} in language: {user_language}")
 
-    # Search for service in data
+    # Поиск услуги в данных
     service_info = find_service(user_input)
     if service_info:
         response_text = "\n".join(service_info)
@@ -105,6 +109,7 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
 
 
 
