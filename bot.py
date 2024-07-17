@@ -15,6 +15,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+logger = logging.getLogger(__name__)
 
 # Получение API ключей из переменных окружения
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -53,13 +54,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def find_service(service_name):
     results = []
     for category, items in services.items():
-        for subcategory, subitems in items.items():
-            if service_name.lower() in subcategory.lower() or service_name.lower() in category.lower():
-                if isinstance(subitems, dict):
-                    for service, price in subitems.items():
-                        results.append(f"{service}: {price}")
-                else:
-                    results.append(f"{subcategory}: {subitems}")
+        if service_name.lower() in category.lower():
+            for service, price in items.items():
+                results.append(f"{service}: {price}")
+        elif any(service_name.lower() in service.lower() for service in items):
+            for service, price in items.items():
+                if service_name.lower() in service.lower():
+                    results.append(f"{service}: {price}")
     return results
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -71,54 +72,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if service_info:
         response_text = "\n".join(service_info)
     else:
-        response_text = "К сожалению, я не нашел информации по вашему запросу. Пожалуйста, уточните запрос или обратитесь к нашим специалистам для получения точной информации."
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": user_input}
+            ],
+            max_tokens=1000,
+            temperature=0.5
+        )
+        response_text = response['choices'][0]['message']['content'].strip()
 
     await update.message.reply_text(response_text)
 
-async def handle_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_input = update.message.text.strip().lower()
-    user_language = context.user_data.get('language', 'ru')
-
-    if user_input in ["да", "хорошо"]:
-        questions = {
-            "ru": [
-                "Ваше имя и фамилия?",
-                "Номер телефона?",
-                "Удобное время для записи (дата, месяц, год и время)?"
-            ],
-            "uz": [
-                "Ismingiz va familiyangiz?",
-                "Telefon raqamingiz?",
-                "Ro'yxatdan o'tish uchun qulay vaqt (sana, oy, yil va vaqt)?"
-            ],
-            "en": [
-                "Your name and surname?",
-                "Your phone number?",
-                "Convenient time for appointment (date, month, year and time)?"
-            ]
-        }
-        for question in questions[user_language]:
-            await update.message.reply_text(question)
-    else:
-        await update.message.reply_text("Пожалуйста, уточните, хотите ли вы записаться на консультацию или прием?")
-
 # Обработка ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logging.error(msg="Exception while handling an update:", exc_info=context.error)
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
 
 # Запуск бота
 if __name__ == "__main__":
-    logging.info("Запуск приложения...")
+    logger.info("Запуск приложения...")
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(set_language, pattern='^lang_'))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(да|хорошо)$"), handle_booking))
     application.add_error_handler(error_handler)
 
-    logging.info("Бот запущен, ожидание сообщений...")
+    logger.info("Бот запущен, ожидание сообщений...")
     application.run_polling()
 
 
