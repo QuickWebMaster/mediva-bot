@@ -15,7 +15,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
-logger = logging.getLogger(__name__)
 
 # Получение API ключей из переменных окружения
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -72,35 +71,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if service_info:
         response_text = "\n".join(service_info)
     else:
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": user_input}
-                ],
-                max_tokens=1000,
-                temperature=0.5
-            )
-            response_text = response['choices'][0]['message']['content'].strip()
-        except Exception as e:
-            logger.error(f"Error with OpenAI API: {e}")
-            response_text = "Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже."
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": user_input}
+            ],
+            max_tokens=1000,
+            temperature=0.5
+        )
+        response_text = response['choices'][0]['message']['content'].strip()
 
     await update.message.reply_text(response_text)
 
 # Обработка ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.error(msg="Exception while handling an update:", exc_info=context.error)
-    try:
-        if update and update.effective_chat:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
-    except Exception as e:
-        logger.error(f"Error while sending error message: {e}")
+    logging.error(msg="Exception while handling an update:", exc_info=context.error)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="Произошла ошибка, попробуйте позже.")
 
 # Запуск бота
 if __name__ == "__main__":
-    logger.info("Запуск приложения...")
+    logging.info("Запуск приложения...")
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -108,7 +99,7 @@ if __name__ == "__main__":
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(error_handler)
 
-    logger.info("Бот запущен, ожидание сообщений...")
+    logging.info("Бот запущен, ожидание сообщений...")
     application.run_polling()
 
 
