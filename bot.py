@@ -1,11 +1,13 @@
 import logging
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler
+from flask import Flask, request, jsonify
+from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler, Dispatcher
 import openai
 from datetime import datetime, timedelta
 from data import services
 from dotenv import load_dotenv
+import requests
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -19,13 +21,22 @@ logging.basicConfig(
 # Ваши API ключи из .env файла
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+ZAPIER_WEBHOOK_URL = os.getenv('ZAPIER_WEBHOOK_URL')
 
 openai.api_key = OPENAI_API_KEY
+
+# Инициализация Flask приложения
+app = Flask(__name__)
+
+# Инициализация бота
+bot = Bot(TELEGRAM_BOT_TOKEN)
+dispatcher = Dispatcher(bot, None, workers=0)
 
 # Контактная информация клиники
 CONTACT_INFO = {
     "address": "Республика Узбекистан, город Ташкент, улица Аския 26Б",
-    "phone": "+998(97)554-44-55",
+    "phone": "+998(71) 253-84-44, +998(97)554-44-55",
+    "email": "info@mediva.uz",
     "website": "https://medivaclinic.net/"
 }
 
@@ -34,6 +45,33 @@ LANGUAGES = {
     "ru": "Русский",
     "uz": "Uzbek",
     "en": "English"
+}
+
+# Информация о врачах
+DOCTORS = {
+    "dermatologists": [
+        "Рахматова Дина Валерьевна",
+        "Ухватова Ирина Васильевна",
+        "Квон Инна Трофимовна",
+        "Хасаншина Тамилла Леннаровна",
+        "Шаякубова Джамиля Ялкиновна",
+        "Гиязова Насиба Исламовна"
+    ],
+    "dentists": [
+        "Амиров Нодир Кудратуллаевич",
+        "Ташкенбаева Индира Улугбековна"
+    ],
+    "recommended": {
+        "dermatologists": [
+            "Рахматова Дина Валерьевна",
+            "Ухватова Ирина Васильевна",
+            "Квон Инна Трофимовна"
+        ],
+        "dentists": [
+            "Амиров Нодир Кудратуллаевич",
+            "Ташкенбаева Индира Улугбековна"
+        ]
+    }
 }
 
 # Приветственное сообщение
@@ -74,27 +112,46 @@ def services_to_text(services):
             service_text += f"{category}: {items}\n"
     return service_text
 
+# Функция для рекомендации врачей
+async def recommend_doctors(update: Update, context: CallbackContext) -> None:
+    user_language = context.user_data.get('language', 'ru')
+    user_input = update.message.text.lower()
+
+    if "дерматолог" in user_input or "косметолог" in user_input:
+        doctors = DOCTORS["recommended"]["dermatologists"]
+    elif "стоматолог" in user_input:
+        doctors = DOCTORS["recommended"]["dentists"]
+    else:
+        doctors = DOCTORS["recommended"]["dermatologists"] + DOCTORS["recommended"]["dentists"]
+
+    response = f"Вот рекомендуемые врачи по вашему запросу:\n" + "\n".join(doctors)
+    await update.message.reply_text(response)
+
 # Обработка сообщений
 async def handle_message(update: Update, context: CallbackContext) -> None:
     user_input = update.message.text.lower()
     user_language = context.user_data.get('language', 'ru')
 
-    # Специальный ответ на вопрос "расскажи о себе"
-    if "расскажи о себе" in user_input or "tell me about yourself" in user_input:
-        await update.message.reply_text(WELCOME_MESSAGES[user_language])
-        return
+    if "врач" in user_input or "доктор" in user_input:
+        await recommend_doctors(update, context)
+    else:
+        services_text = services_to_text(services)
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": f"You are a helpful assistant for a medical clinic. Respond in {LANGUAGES[user_language]}."},
+                {"role": "system", "content": f"Here is the list of services and their prices:\n{services_text}"},
+                {"role": "system", "content": f"Here is the contact information:\n{CONTACT_INFO}"},
+                {"role": "system", "content": f"Here is the information about doctors:\n{DOCTORS}"},
+                {"role": "user", "content": user_input}
+            ]
+        )
+        await update.message.reply_text(response.choices[0].message['content'].strip())
 
-    services_text = services_to_text(services)
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": f"You are a helpful assistant for a medical clinic. Respond in {LANGUAGES[user_language]}."},
-            {"role": "system", "content": f"Here is the list of services and their prices:\n{services_text}"},
-            {"role": "user", "content": user_input}
-        ]
-    )
-
-    await update.message.reply_text(response.choices[0].message['content'].strip())
+# Функция для отправки данных в Zapier
+def send_to_zapier(data):
+    response = requests.post(ZAPIER_WEBHOOK_URL, json=data)
+    return response.status_code == 200
 
 # Запись на прием
 async def book_appointment(update: Update, context: CallbackContext) -> None:
@@ -106,15 +163,23 @@ async def handle_appointment(update: Update, context: CallbackContext) -> None:
     user_data = update.message.text.split(',')
     if len(user_data) == 3:
         fio, dob, time = user_data
-        # Здесь вы можете добавить код для сохранения данных о записи
-        await update.message.reply_text(
-            f"{fio}, благодарим за ваше обращение.\n\n"
-            f"Мы записали вас на прием.\n\n"
-            f"Дата: {datetime.strptime(dob.strip(), '%Y-%m-%d').date()}\n"
-            f"Время: {time.strip()}\n\n"
-            f"Если у вас возникнут дополнительные вопросы или изменения, пожалуйста, сообщите нам по номеру {CONTACT_INFO['phone']}.\n\n"
-            f"Хорошего дня!"
-        )
+        appointment_data = {
+            "fio": fio.strip(),
+            "dob": dob.strip(),
+            "time": time.strip(),
+            "platform": "Telegram"
+        }
+        if send_to_zapier(appointment_data):
+            await update.message.reply_text(
+                f"{fio}, благодарим за ваше обращение.\n\n"
+                f"Мы записали вас на прием.\n\n"
+                f"Дата: {datetime.strptime(dob.strip(), '%Y-%m-%d').date()}\n"
+                f"Время: {time.strip()}\n\n"
+                f"Если у вас возникнут дополнительные вопросы или изменения, пожалуйста, сообщите нам по номеру {CONTACT_INFO['phone']}.\n\n"
+                f"Хорошего дня!"
+            )
+        else:
+            await update.message.reply_text("Извините, произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте еще раз позже.")
         
         # Планируем напоминание за час до приема
         appointment_time = datetime.strptime(time.strip(), '%Y-%m-%d %H:%M')
@@ -138,9 +203,22 @@ async def provide_info(update: Update, context: CallbackContext) -> None:
     contact_info = (
         f"Адрес: {CONTACT_INFO['address']}\n"
         f"Номер телефона: {CONTACT_INFO['phone']}\n"
+        f"Email: {CONTACT_INFO['email']}\n"
         f"Ссылка на официальный сайт: {CONTACT_INFO['website']}"
     )
     await update.message.reply_text(f"{contact_info} ({LANGUAGES[user_language]})")
+
+# Обработчик вебхука
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), bot)
+    dispatcher.process_update(update)
+    return jsonify({"ok": True})
+
+# Маршрут для проверки работоспособности
+@app.route('/')
+def index():
+    return 'Бот клиники Медива работает!'
 
 # Запуск бота
 def main() -> None:
@@ -153,11 +231,12 @@ def main() -> None:
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_appointment))
     application.add_handler(CommandHandler("info", provide_info))
 
-    application.run_polling()
+    # Запуск Flask приложения
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 if __name__ == "__main__":
     main()
-
 
 
 
