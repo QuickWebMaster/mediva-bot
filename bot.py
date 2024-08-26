@@ -137,7 +137,7 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
     else:
         services_text = services_to_text(services)
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": f"You are a helpful assistant for a medical clinic. Respond in {LANGUAGES[user_language]}."},
                 {"role": "system", "content": f"Here is the list of services and their prices:\n{services_text}"},
@@ -236,8 +236,8 @@ def main() -> None:
     serve(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 if __name__ == "__main__":
-    main()
-
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 
 
