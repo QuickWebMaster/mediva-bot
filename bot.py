@@ -1,8 +1,8 @@
 import logging
 import os
 from flask import Flask, request, jsonify
-from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters, CallbackQueryHandler, Dispatcher
+from telegram import Update, Bot
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 import openai
 from datetime import datetime, timedelta
 from data import services
@@ -27,10 +27,6 @@ openai.api_key = OPENAI_API_KEY
 
 # Инициализация Flask приложения
 app = Flask(__name__)
-
-# Инициализация бота
-bot = Bot(TELEGRAM_BOT_TOKEN)
-dispatcher = Dispatcher(bot, None, workers=0)
 
 # Контактная информация клиники
 CONTACT_INFO = {
@@ -83,22 +79,19 @@ WELCOME_MESSAGES = {
 
 # Стартовая команда
 async def start(update: Update, context: CallbackContext) -> None:
-    keyboard = [
-        [InlineKeyboardButton("Русский", callback_data='lang_ru')],
-        [InlineKeyboardButton("Uzbek", callback_data='lang_uz')],
-        [InlineKeyboardButton("English", callback_data='lang_en')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text('Выберите язык / Choose a language:', reply_markup=reply_markup)
+    await update.message.reply_text('Выберите язык / Choose a language:', 
+                                    reply_markup={"keyboard": [["Русский"], ["Uzbek"], ["English"]], "one_time_keyboard": True})
 
 # Обработчик выбора языка
-async def button(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    await query.answer()
-    language_code = query.data.split('_')[1]
-    context.user_data['language'] = language_code
-    await query.edit_message_text(text=f"Язык выбран: {LANGUAGES[language_code]}")
-    await query.message.reply_text(WELCOME_MESSAGES[language_code])
+async def set_language(update: Update, context: CallbackContext) -> None:
+    language = update.message.text
+    if language == "Русский":
+        context.user_data['language'] = 'ru'
+    elif language == "Uzbek":
+        context.user_data['language'] = 'uz'
+    else:
+        context.user_data['language'] = 'en'
+    await update.message.reply_text(WELCOME_MESSAGES[context.user_data['language']])
 
 # Преобразование словаря услуг в текст
 def services_to_text(services):
@@ -137,7 +130,7 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
     else:
         services_text = services_to_text(services)
         response = openai.ChatCompletion.create(
-            model="gpt-4o",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": f"You are a helpful assistant for a medical clinic. Respond in {LANGUAGES[user_language]}."},
                 {"role": "system", "content": f"Here is the list of services and their prices:\n{services_text}"},
@@ -180,22 +173,8 @@ async def handle_appointment(update: Update, context: CallbackContext) -> None:
             )
         else:
             await update.message.reply_text("Извините, произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте еще раз позже.")
-        
-        # Планируем напоминание за час до приема
-        appointment_time = datetime.strptime(time.strip(), '%Y-%m-%d %H:%M')
-        reminder_time = appointment_time - timedelta(hours=1)
-        schedule_reminder(context, update.message.chat_id, reminder_time)
     else:
         await update.message.reply_text(f"Пожалуйста, предоставьте всю информацию в формате: И.Ф.О, дата рождения, удобное время. ({LANGUAGES[context.user_data['language']]})")
-
-# Функция для планирования напоминаний
-def schedule_reminder(context: CallbackContext, chat_id: int, reminder_time: datetime) -> None:
-    context.job_queue.run_once(send_reminder, when=reminder_time, context=chat_id)
-
-# Напоминание о предстоящем визите
-async def send_reminder(context: CallbackContext) -> None:
-    job = context.job
-    await context.bot.send_message(job.context, text='Напоминание: у вас запланирован визит через час.')
 
 # Справочная информация
 async def provide_info(update: Update, context: CallbackContext) -> None:
@@ -212,7 +191,7 @@ async def provide_info(update: Update, context: CallbackContext) -> None:
 @app.route('/webhook', methods=['POST'])
 def webhook():
     update = Update.de_json(request.get_json(force=True), bot)
-    dispatcher.process_update(update)
+    application.process_update(update)
     return jsonify({"ok": True})
 
 # Маршрут для проверки работоспособности
@@ -222,13 +201,15 @@ def index():
 
 # Запуск бота
 def main() -> None:
-    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    global application
+    global bot
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    bot = application.bot
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button))
+    application.add_handler(MessageHandler(filters.Regex('^(Русский|Uzbek|English)$'), set_language))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CommandHandler("book", book_appointment))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_appointment))
     application.add_handler(CommandHandler("info", provide_info))
 
     # Запуск Flask приложения
@@ -236,10 +217,7 @@ def main() -> None:
     serve(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 if __name__ == "__main__":
-    from waitress import serve
-    serve(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
-
+    main()
 
 
 
