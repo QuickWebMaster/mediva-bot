@@ -211,14 +211,13 @@ def main() -> None:
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CommandHandler("book", book_appointment))
     application.add_handler(CommandHandler("info", provide_info))
-
-    # Запуск Flask приложения
-    from waitress import serve
-    serve(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_appointment))
 
 if __name__ == "__main__":
     main()
-
+    # Запуск Flask приложения
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
 
 
 
