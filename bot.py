@@ -130,7 +130,7 @@ async def handle_message(update: Update, context: CallbackContext) -> None:
     else:
         services_text = services_to_text(services)
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": f"You are a helpful assistant for a medical clinic. Respond in {LANGUAGES[user_language]}."},
                 {"role": "system", "content": f"Here is the list of services and their prices:\n{services_text}"},
